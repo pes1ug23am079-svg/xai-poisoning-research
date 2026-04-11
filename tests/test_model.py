@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
-from xai_poison.data import load_data, preprocess, split_data, poison_label_flip, poison_feature_perturbation
+
 from xai_poison.model import ModelTrainer
 
 
@@ -11,10 +10,7 @@ def sample_data():
     """Create synthetic training data."""
     np.random.seed(42)
     n = 1000
-    X = pd.DataFrame(
-        np.random.randn(n, 28),
-        columns=[f"V{i}" for i in range(1, 29)]
-    )
+    X = pd.DataFrame(np.random.randn(n, 28), columns=[f"V{i}" for i in range(1, 29)])
     y = pd.Series(np.random.choice([0, 1], size=n, p=[0.98, 0.02]))
     return X, y
 
@@ -104,5 +100,6 @@ class TestModelTrainer:
         trainer.save_results(output_path)
 
         assert output_path.exists()
+
         loaded_df = pd.read_csv(output_path)
         assert len(loaded_df) == 2

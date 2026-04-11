@@ -1,7 +1,7 @@
-import joblib
-import numpy as np
-import pandas as pd
 from pathlib import Path
+
+import joblib
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, roc_auc_score
 from xgboost import XGBClassifier
@@ -30,7 +30,9 @@ class ModelTrainer:
         self.xgb_model = model
         return model
 
-    def train_random_forest(self, X_train: pd.DataFrame, y_train: pd.Series) -> RandomForestClassifier:
+    def train_random_forest(
+        self, X_train: pd.DataFrame, y_train: pd.Series
+    ) -> RandomForestClassifier:
         """Train Random Forest classifier."""
         model = RandomForestClassifier(
             random_state=self.random_state,
@@ -42,9 +44,7 @@ class ModelTrainer:
         self.rf_model = model
         return model
 
-    def evaluate_model(
-        self, model, X_test: pd.DataFrame, y_test: pd.Series
-    ) -> dict:
+    def evaluate_model(self, model, X_test: pd.DataFrame, y_test: pd.Series) -> dict:
         """Evaluate model on test set. Return AUC and F1."""
         y_pred_proba = model.predict_proba(X_test)[:, 1]
         y_pred = model.predict(X_test)
