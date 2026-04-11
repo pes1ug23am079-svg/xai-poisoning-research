@@ -25,7 +25,7 @@ addopts = "-v --tb=short"
 
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "xai-poison"
