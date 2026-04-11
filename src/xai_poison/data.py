@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -23,10 +24,14 @@ def preprocess(df: pd.DataFrame):
 
 
 def split_data(X, y, test_size: float = 0.2, random_state: int = 42):
-    return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
+    return train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=y
+    )
 
 
-def poison_label_flip(X_train, y_train, poison_rate: float = 0.1, random_state: int = 42):
+def poison_label_flip(
+    X_train, y_train, poison_rate: float = 0.1, random_state: int = 42
+):
     rng = np.random.default_rng(random_state)
     y_poisoned = y_train.copy()
     minority_idx = y_train[y_train == 1].index.tolist()
@@ -36,7 +41,9 @@ def poison_label_flip(X_train, y_train, poison_rate: float = 0.1, random_state: 
     return X_train, y_poisoned
 
 
-def poison_feature_perturbation(X_train, y_train, poison_rate: float = 0.1, random_state: int = 42):
+def poison_feature_perturbation(
+    X_train, y_train, poison_rate: float = 0.1, random_state: int = 42
+):
     rng = np.random.default_rng(random_state)
     X_poisoned = X_train.copy()
     n_poison = int(len(X_train) * poison_rate)
