@@ -1,15 +1,11 @@
-import pytest
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import pytest
 
 from xai_poison.explainer import run_shap, run_lime
 
-
-# =========================
-# Fixtures
-# =========================
 
 @pytest.fixture
 def sample_data():
@@ -22,13 +18,9 @@ def sample_data():
 @pytest.fixture
 def fake_model():
     model = MagicMock()
-    model.predict_proba.return_value = np.array([[0.7, 0.3]] * 100)
+    model.predict_proba.side_effect = lambda X: np.tile([0.7, 0.3], (len(X), 1))
     return model
 
-
-# =========================
-# SHAP Tests
-# =========================
 
 def test_run_shap_creates_csv(tmp_path, sample_data):
     X, feature_names = sample_data
@@ -52,10 +44,6 @@ def test_run_shap_creates_csv(tmp_path, sample_data):
         df = pd.read_csv(output_file)
         assert df.shape == X.shape
 
-
-# =========================
-# LIME Tests
-# =========================
 
 def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
     X, feature_names = sample_data
@@ -82,10 +70,6 @@ def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
         df = pd.read_csv(output_file)
         assert len(df) == 10
 
-
-# =========================
-# Edge Case Tests
-# =========================
 
 def test_run_shap_handles_list_output(tmp_path, sample_data):
     X, feature_names = sample_data

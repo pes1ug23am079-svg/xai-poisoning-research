@@ -1,28 +1,22 @@
-from pathlib import Path
 import pandas as pd
-import numpy as np
+from pathlib import Path
+
+import shap
+from lime.lime_tabular import LimeTabularExplainer
 
 from xai_poison.data import load_data, preprocess, split_data
 from xai_poison.model import ModelTrainer
 
 
-# =========================
-# SHAP EXPLAINER
-# =========================
 def run_shap(model, X, feature_names, output_path):
-    import shap
-
     print("  → Running SHAP...")
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
 
-    # ---- FIX HERE ----
     if isinstance(shap_values, list):
         shap_values = shap_values[1]
-
     elif len(shap_values.shape) == 3:
         shap_values = shap_values[:, :, 1]
-    # ------------------
 
     df = pd.DataFrame(shap_values, columns=feature_names)
 
@@ -32,12 +26,7 @@ def run_shap(model, X, feature_names, output_path):
     print(f"  ✓ SHAP saved → {output_path}")
 
 
-# =========================
-# LIME EXPLAINER
-# =========================
 def run_lime(model, X_train, X_explain, feature_names, output_path):
-    from lime.lime_tabular import LimeTabularExplainer
-
     print("  → Running LIME...")
 
     explainer = LimeTabularExplainer(
@@ -58,10 +47,9 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
 
         weights = dict(exp.as_list())
 
-        # 🔥 FIX: normalize feature names (remove conditions)
         clean_weights = {}
         for key, value in weights.items():
-            feature = key.split()[0]  # "V17 <= -0.48" → "V17"
+            feature = key.split()[0]
             clean_weights[feature] = value
 
         results.append(clean_weights)
@@ -71,12 +59,11 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
 
     df = pd.DataFrame(results)
 
-    # 🔥 FIX: ensure all features exist as columns
     for col in feature_names:
         if col not in df.columns:
             df[col] = 0.0
 
-    df = df[feature_names]  # reorder columns
+    df = df[feature_names]
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
@@ -84,9 +71,6 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
     print(f"  ✓ LIME saved → {output_path}")
 
 
-# =========================
-# MAIN LOOP (ALL MODELS)
-# =========================
 def main():
     print("Loading data...")
     df = load_data()
@@ -105,14 +89,9 @@ def main():
         print(f"Processing model: {model_file.name}")
         print("=" * 60)
 
-        # Load model
         model = trainer.load_model(model_file)
+        name = model_file.stem
 
-        name = model_file.stem  # e.g. xgb_label_flip_0.1
-
-        # -------------------
-        # SHAP
-        # -------------------
         run_shap(
             model,
             X_test,
@@ -120,13 +99,10 @@ def main():
             f"results/shap/shap_{name}.csv"
         )
 
-        # -------------------
-        # LIME (limited samples for speed)
-        # -------------------
         run_lime(
             model,
-            X_train.values,
-            X_test.values[:50],   # keep small (LIME is slow)
+            X_train.to_numpy(),
+            X_test.to_numpy()[:50],
             feature_names,
             f"results/lime/lime_{name}.csv"
         )
