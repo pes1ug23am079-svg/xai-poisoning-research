@@ -21,7 +21,9 @@ def random_explanations():
     np.random.seed(0)
     clean = pd.DataFrame(np.random.randn(50, 10), columns=[f"V{i}" for i in range(10)])
     np.random.seed(99)
-    poisoned = pd.DataFrame(np.random.randn(50, 10), columns=[f"V{i}" for i in range(10)])
+    poisoned = pd.DataFrame(
+        np.random.randn(50, 10), columns=[f"V{i}" for i in range(10)]
+    )
     return clean, poisoned
 
 
@@ -31,7 +33,9 @@ def test_spearman_identical_returns_one(identical_explanations):
     assert abs(result - 1.0) < 1e-6
 
 
-def test_spearman_random_less_than_identical(identical_explanations, random_explanations):
+def test_spearman_random_less_than_identical(
+    identical_explanations, random_explanations
+):
     corr_identical = spearman_correlation(*identical_explanations)
     corr_random = spearman_correlation(*random_explanations)
     assert corr_random < corr_identical

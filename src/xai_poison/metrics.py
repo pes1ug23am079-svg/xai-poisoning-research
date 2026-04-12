@@ -10,7 +10,10 @@ from scipy.stats import spearmanr
 # Core metrics
 # ---------------------------------------------------------------------------
 
-def spearman_correlation(shap_clean: pd.DataFrame, shap_poisoned: pd.DataFrame, max_samples: int = 500) -> float:
+
+def spearman_correlation(
+    shap_clean: pd.DataFrame, shap_poisoned: pd.DataFrame, max_samples: int = 500
+) -> float:
     """
     Mean per-sample Spearman rank correlation between clean and poisoned
     SHAP/LIME explanation matrices.
@@ -19,7 +22,9 @@ def spearman_correlation(shap_clean: pd.DataFrame, shap_poisoned: pd.DataFrame, 
     absolute importance per sample and compute correlation across features,
     then average over all samples. Capped at max_samples for performance.
     """
-    assert shap_clean.shape == shap_poisoned.shape, "Explanation matrices must have the same shape"
+    assert shap_clean.shape == shap_poisoned.shape, (
+        "Explanation matrices must have the same shape"
+    )
     n = len(shap_clean)
     if n > max_samples:
         rng = np.random.default_rng(42)
@@ -36,14 +41,23 @@ def spearman_correlation(shap_clean: pd.DataFrame, shap_poisoned: pd.DataFrame, 
     return float(np.mean(correlations)) if correlations else float("nan")
 
 
-def top_k_overlap(shap_clean: pd.DataFrame, shap_poisoned: pd.DataFrame, k: int = 5, max_samples: int = 500) -> float:
+def top_k_overlap(
+    shap_clean: pd.DataFrame,
+    shap_poisoned: pd.DataFrame,
+    k: int = 5,
+    max_samples: int = 500,
+) -> float:
     """
     Mean fraction of top-k features (by absolute importance) that overlap
     between clean and poisoned explanations, averaged over all samples.
     Capped at max_samples for performance.
     """
-    assert shap_clean.shape == shap_poisoned.shape, "Explanation matrices must have the same shape"
-    assert 1 <= k <= shap_clean.shape[1], f"k must be between 1 and {shap_clean.shape[1]}"
+    assert shap_clean.shape == shap_poisoned.shape, (
+        "Explanation matrices must have the same shape"
+    )
+    assert 1 <= k <= shap_clean.shape[1], (
+        f"k must be between 1 and {shap_clean.shape[1]}"
+    )
     n = len(shap_clean)
     if n > max_samples:
         rng = np.random.default_rng(42)
@@ -86,6 +100,7 @@ def explanation_stability(explanation_df: pd.DataFrame) -> float:
 # Batch evaluation over results directory
 # ---------------------------------------------------------------------------
 
+
 def compute_all_metrics(
     shap_dir: Path,
     lime_dir: Path,
@@ -100,7 +115,9 @@ def compute_all_metrics(
     for explainer_name, results_dir in [("shap", shap_dir), ("lime", lime_dir)]:
         clean_path = results_dir / f"{explainer_name}_{clean_prefix}.csv"
         if not clean_path.exists():
-            print(f"  Skipping {explainer_name}: clean baseline not found at {clean_path}")
+            print(
+                f"  Skipping {explainer_name}: clean baseline not found at {clean_path}"
+            )
             continue
 
         clean_df = pd.read_csv(clean_path)
@@ -130,15 +147,17 @@ def compute_all_metrics(
                 poison_type = "unknown"
                 poison_rate = float("nan")
 
-            records.append({
-                "explainer": explainer_name,
-                "model": model_type,
-                "poison_type": poison_type,
-                "poison_rate": poison_rate,
-                "spearman_corr": spearman_correlation(c, p),
-                "top5_overlap": top_k_overlap(c, p, k=5),
-                "stability": explanation_stability(p),
-            })
+            records.append(
+                {
+                    "explainer": explainer_name,
+                    "model": model_type,
+                    "poison_type": poison_type,
+                    "poison_rate": poison_rate,
+                    "spearman_corr": spearman_correlation(c, p),
+                    "top5_overlap": top_k_overlap(c, p, k=5),
+                    "stability": explanation_stability(p),
+                }
+            )
 
     return pd.DataFrame(records)
 
@@ -146,6 +165,7 @@ def compute_all_metrics(
 # ---------------------------------------------------------------------------
 # Plots
 # ---------------------------------------------------------------------------
+
 
 def plot_spearman_by_poison_rate(metrics_df: pd.DataFrame, output_path: Path) -> None:
     """Line plot: Spearman correlation vs. poison rate, faceted by explainer."""
@@ -183,7 +203,9 @@ def plot_top_k_overlap(metrics_df: pd.DataFrame, output_path: Path) -> None:
     if df.empty:
         return
 
-    df["label"] = df["model"] + "\n" + df["poison_type"] + "\n" + df["poison_rate"].astype(str)
+    df["label"] = (
+        df["model"] + "\n" + df["poison_type"] + "\n" + df["poison_rate"].astype(str)
+    )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     for ax, explainer in zip(axes, ["shap", "lime"]):
@@ -209,15 +231,21 @@ def plot_stability_heatmap(metrics_df: pd.DataFrame, output_path: Path) -> None:
         if subset.empty:
             continue
 
-        subset["config"] = subset["poison_type"] + "_" + subset["poison_rate"].astype(str)
+        subset["config"] = (
+            subset["poison_type"] + "_" + subset["poison_rate"].astype(str)
+        )
         pivot = subset.pivot_table(index="model", columns="config", values="stability")
 
         fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns)), 4))
-        sns.heatmap(pivot, annot=True, fmt=".2f", cmap="YlOrRd_r", ax=ax, vmin=0, vmax=1)
+        sns.heatmap(
+            pivot, annot=True, fmt=".2f", cmap="YlOrRd_r", ax=ax, vmin=0, vmax=1
+        )
         ax.set_title(f"{explainer.upper()} — Explanation Stability Heatmap")
         plt.tight_layout()
 
-        path = output_path.parent / f"{output_path.stem}_{explainer}{output_path.suffix}"
+        path = (
+            output_path.parent / f"{output_path.stem}_{explainer}{output_path.suffix}"
+        )
         path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(path, dpi=150)
         plt.close()
@@ -227,6 +255,7 @@ def plot_stability_heatmap(metrics_df: pd.DataFrame, output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main():
     shap_dir = Path("results/shap")
