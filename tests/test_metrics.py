@@ -5,11 +5,11 @@ import pytest
 from xai_poison.metrics import (
     compute_all_metrics,
     explanation_stability,
+    plot_spearman_by_poison_rate,
+    plot_stability_heatmap,
+    plot_top_k_overlap,
     spearman_correlation,
     top_k_overlap,
-    plot_spearman_by_poison_rate,
-    plot_top_k_overlap,
-    plot_stability_heatmap,
 )
 
 
