@@ -42,7 +42,7 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
         exp = explainer.explain_instance(
             row,
             model.predict_proba,
-            num_features=10
+            num_features=10,
         )
 
         weights = dict(exp.as_list())
@@ -55,7 +55,7 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
         results.append(clean_weights)
 
         if (i + 1) % 10 == 0:
-            print(f"    explained {i+1} samples")
+            print(f"    explained {i + 1} samples")
 
     df = pd.DataFrame(results)
 
@@ -96,7 +96,7 @@ def main():
             model,
             X_test,
             feature_names,
-            f"results/shap/shap_{name}.csv"
+            f"results/shap/shap_{name}.csv",
         )
 
         run_lime(
@@ -104,7 +104,7 @@ def main():
             X_train.to_numpy(),
             X_test.to_numpy()[:50],
             feature_names,
-            f"results/lime/lime_{name}.csv"
+            f"results/lime/lime_{name}.csv",
         )
 
     print("\n🎉 ALL MODELS PROCESSED SUCCESSFULLY!")
