@@ -31,7 +31,7 @@ Four modules built in dependency order:
 | `data.py` | Load, preprocess, split, poison attacks | Done |
 | `model.py` | Train XGBoost/RF on clean vs. poisoned data, log AUC/F1 | Done |
 | `explainer.py` | SHAP TreeExplainer + LIME wrappers, save outputs as CSV | Done |
-| `metrics.py` | Spearman correlation, top-k overlap, stability scores, plots | Not started |
+| `metrics.py` | Spearman correlation, top-k overlap, stability scores, plots | Done |
 
 Each module only imports from modules earlier in the pipeline.
 
@@ -62,6 +62,11 @@ python train_models.py
 python src/xai_poison/explainer.py
 ```
 
+**Compute metrics and generate plots:**
+```bash
+python src/xai_poison/metrics.py
+```
+
 ## Commands
 
 ```bash
@@ -85,8 +90,10 @@ ruff format src tests
 models/                          # saved .pkl model files
 results/
 ├── training_results.csv         # AUC + F1 per model/poison config
-├── shap/                        # SHAP values per model
-└── lime/                        # LIME explanations per model
+├── metrics.csv                  # Spearman, top-5 overlap, stability per config
+├── shap/                        # SHAP values per model (57k rows × 30 features)
+├── lime/                        # LIME explanations per model (50 rows × 30 features)
+└── plots/                       # spearman_by_poison_rate, top5_overlap, stability heatmaps
 ```
 
 ## Team
@@ -95,7 +102,7 @@ results/
 
 | Member | Files |
 |---|---|
-| Member 1 | `src/xai_poison/data.py` + `tests/test_data.py` |
-| Member 2 | `src/xai_poison/model.py` + `tests/test_model.py` |
-| Member 3 | `src/xai_poison/explainer.py` + `tests/test_explainer.py` |
-| Member 4 | `src/xai_poison/metrics.py` + `tests/test_metrics.py` |
+| Jyotsana | `src/xai_poison/data.py` + `tests/test_data.py` |
+| Mahima | `src/xai_poison/model.py` + `tests/test_model.py` |
+| Tanav | `src/xai_poison/explainer.py` + `tests/test_explainer.py` |
+| Rhrishi | `src/xai_poison/metrics.py` + `tests/test_metrics.py` |
