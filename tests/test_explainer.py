@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from xai_poison.explainer import run_shap, run_lime
+from xai_poison.explainer import run_lime, run_shap
 
 
 @pytest.fixture
