@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pandas as pd
-from lime.lime_tabular import LimeTabularExplainer
 import shap
+from lime.lime_tabular import LimeTabularExplainer
 
 from xai_poison.data import load_data, preprocess, split_data
 from xai_poison.model import ModelTrainer
