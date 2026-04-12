@@ -18,9 +18,7 @@ def sample_data():
 @pytest.fixture
 def fake_model():
     model = MagicMock()
-    model.predict_proba.side_effect = lambda X: np.tile(
-        [0.7, 0.3], (len(X), 1)
-    )
+    model.predict_proba.side_effect = lambda X: np.tile([0.7, 0.3], (len(X), 1))
     return model
 
 
