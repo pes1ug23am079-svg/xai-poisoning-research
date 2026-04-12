@@ -36,13 +36,16 @@ def large_explanations():
     np.random.seed(0)
     clean = pd.DataFrame(np.random.randn(600, 10), columns=[f"V{i}" for i in range(10)])
     np.random.seed(1)
-    poisoned = pd.DataFrame(np.random.randn(600, 10), columns=[f"V{i}" for i in range(10)])
+    poisoned = pd.DataFrame(
+        np.random.randn(600, 10), columns=[f"V{i}" for i in range(10)]
+    )
     return clean, poisoned
 
 
 # ---------------------------------------------------------------------------
 # spearman_correlation
 # ---------------------------------------------------------------------------
+
 
 def test_spearman_identical_returns_one(identical_explanations):
     clean, poisoned = identical_explanations
@@ -87,6 +90,7 @@ def test_spearman_custom_max_samples(large_explanations):
 # top_k_overlap
 # ---------------------------------------------------------------------------
 
+
 def test_top_k_overlap_identical_returns_one(identical_explanations):
     clean, poisoned = identical_explanations
     result = top_k_overlap(clean, poisoned, k=5)
@@ -121,6 +125,7 @@ def test_top_k_overlap_sampling_branch(large_explanations):
 # explanation_stability
 # ---------------------------------------------------------------------------
 
+
 def test_explanation_stability_range(random_explanations):
     clean, _ = random_explanations
     result = explanation_stability(clean)
@@ -150,6 +155,7 @@ def test_explanation_stability_sampling_branch():
 # ---------------------------------------------------------------------------
 # compute_all_metrics
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def explanation_dirs(tmp_path):
@@ -185,14 +191,24 @@ def test_compute_all_metrics_returns_dataframe(explanation_dirs):
 def test_compute_all_metrics_columns(explanation_dirs):
     shap_dir, lime_dir = explanation_dirs
     result = compute_all_metrics(shap_dir, lime_dir, clean_prefix="xgb_clean")
-    for col in ["explainer", "model", "poison_type", "poison_rate", "spearman_corr", "top5_overlap", "stability"]:
+    for col in [
+        "explainer",
+        "model",
+        "poison_type",
+        "poison_rate",
+        "spearman_corr",
+        "top5_overlap",
+        "stability",
+    ]:
         assert col in result.columns
 
 
 def test_compute_all_metrics_clean_baseline_spearman(explanation_dirs):
     shap_dir, lime_dir = explanation_dirs
     result = compute_all_metrics(shap_dir, lime_dir, clean_prefix="xgb_clean")
-    clean_rows = result[(result["poison_type"] == "clean") & (result["explainer"] == "shap")]
+    clean_rows = result[
+        (result["poison_type"] == "clean") & (result["explainer"] == "shap")
+    ]
     assert len(clean_rows) > 0
     assert abs(clean_rows["spearman_corr"].iloc[0] - 1.0) < 1e-6
 
@@ -219,21 +235,29 @@ def test_compute_all_metrics_parses_poison_types(explanation_dirs):
 # Plot functions
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def sample_metrics_df():
     records = []
     for explainer in ["shap", "lime"]:
         for model in ["xgb", "rf"]:
-            for poison_type, rate in [("clean", 0.0), ("label_flip", 0.1), ("label_flip", 0.2), ("feature_perturbation", 0.1)]:
-                records.append({
-                    "explainer": explainer,
-                    "model": model,
-                    "poison_type": poison_type,
-                    "poison_rate": rate,
-                    "spearman_corr": np.random.uniform(0.4, 1.0),
-                    "top5_overlap": np.random.uniform(0.5, 1.0),
-                    "stability": np.random.uniform(0.6, 0.9),
-                })
+            for poison_type, rate in [
+                ("clean", 0.0),
+                ("label_flip", 0.1),
+                ("label_flip", 0.2),
+                ("feature_perturbation", 0.1),
+            ]:
+                records.append(
+                    {
+                        "explainer": explainer,
+                        "model": model,
+                        "poison_type": poison_type,
+                        "poison_rate": rate,
+                        "spearman_corr": np.random.uniform(0.4, 1.0),
+                        "top5_overlap": np.random.uniform(0.5, 1.0),
+                        "stability": np.random.uniform(0.6, 0.9),
+                    }
+                )
     return pd.DataFrame(records)
 
 
@@ -257,14 +281,34 @@ def test_plot_stability_heatmap_creates_files(tmp_path, sample_metrics_df):
 
 
 def test_plot_spearman_empty_df(tmp_path):
-    df = pd.DataFrame(columns=["explainer", "model", "poison_type", "poison_rate", "spearman_corr", "top5_overlap", "stability"])
+    df = pd.DataFrame(
+        columns=[
+            "explainer",
+            "model",
+            "poison_type",
+            "poison_rate",
+            "spearman_corr",
+            "top5_overlap",
+            "stability",
+        ]
+    )
     output = tmp_path / "spearman_empty.png"
     plot_spearman_by_poison_rate(df, output)
     assert not output.exists()
 
 
 def test_plot_top_k_overlap_empty_df(tmp_path):
-    df = pd.DataFrame(columns=["explainer", "model", "poison_type", "poison_rate", "spearman_corr", "top5_overlap", "stability"])
+    df = pd.DataFrame(
+        columns=[
+            "explainer",
+            "model",
+            "poison_type",
+            "poison_rate",
+            "spearman_corr",
+            "top5_overlap",
+            "stability",
+        ]
+    )
     output = tmp_path / "top5_empty.png"
     plot_top_k_overlap(df, output)
     assert not output.exists()
