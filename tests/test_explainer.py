@@ -18,7 +18,9 @@ def sample_data():
 @pytest.fixture
 def fake_model():
     model = MagicMock()
-    model.predict_proba.side_effect = lambda X: np.tile([0.7, 0.3], (len(X), 1))
+    model.predict_proba.side_effect = lambda X: np.tile(
+        [0.7, 0.3], (len(X), 1)
+    )
     return model
 
 
@@ -36,7 +38,7 @@ def test_run_shap_creates_csv(tmp_path, sample_data):
             model=MagicMock(),
             X=X,
             feature_names=feature_names,
-            output_path=output_file
+            output_path=output_file,
         )
 
         assert output_file.exists()
@@ -51,7 +53,8 @@ def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
     with patch("lime.lime_tabular.LimeTabularExplainer") as mock_lime:
         mock_instance = MagicMock()
         mock_instance.explain_instance.return_value.as_list.return_value = [
-            ("f0", 0.5), ("f1", -0.2)
+            ("f0", 0.5),
+            ("f1", -0.2),
         ]
         mock_lime.return_value = mock_instance
 
@@ -62,7 +65,7 @@ def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
             X_train=X,
             X_explain=X[:10],
             feature_names=feature_names,
-            output_path=output_file
+            output_path=output_file,
         )
 
         assert output_file.exists()
@@ -78,7 +81,7 @@ def test_run_shap_handles_list_output(tmp_path, sample_data):
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = [
             np.zeros_like(X),
-            np.ones_like(X)
+            np.ones_like(X),
         ]
         mock_tree.return_value = mock_explainer
 
@@ -88,7 +91,7 @@ def test_run_shap_handles_list_output(tmp_path, sample_data):
             model=MagicMock(),
             X=X,
             feature_names=feature_names,
-            output_path=output_file
+            output_path=output_file,
         )
 
         df = pd.read_csv(output_file)
