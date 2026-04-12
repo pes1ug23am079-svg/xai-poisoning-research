@@ -1,7 +1,7 @@
-import pandas as pd
+import shap
 from pathlib import Path
 
-import shap
+import pandas as pd
 from lime.lime_tabular import LimeTabularExplainer
 
 from xai_poison.data import load_data, preprocess, split_data
