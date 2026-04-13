@@ -94,3 +94,26 @@ def test_run_shap_handles_list_output(tmp_path, sample_data):
 
         df = pd.read_csv(output_file)
         assert (df.values == 1).all()
+
+
+def test_run_shap_handles_3d_output(tmp_path, sample_data):
+    X, feature_names = sample_data
+
+    with patch("shap.TreeExplainer") as mock_tree:
+        mock_explainer = MagicMock()
+        # 3D array: (samples, features, classes) — should extract class index 1
+        shap_3d = np.stack([np.zeros_like(X), np.ones_like(X)], axis=2)
+        mock_explainer.shap_values.return_value = shap_3d
+        mock_tree.return_value = mock_explainer
+
+        output_file = tmp_path / "shap_3d.csv"
+
+        run_shap(
+            model=MagicMock(),
+            X=X,
+            feature_names=feature_names,
+            output_path=output_file,
+        )
+
+        df = pd.read_csv(output_file)
+        assert (df.values == 1).all()

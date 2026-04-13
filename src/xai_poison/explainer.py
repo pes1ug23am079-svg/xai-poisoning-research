@@ -36,6 +36,9 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
         mode="classification",
     )
 
+    # Sort longest-first so "V14" is matched before "V1" (substring collision)
+    sorted_features = sorted(feature_names, key=len, reverse=True)
+
     results = []
 
     for i, row in enumerate(X_explain):
@@ -49,8 +52,9 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
 
         clean_weights = {}
         for key, value in weights.items():
-            feature = key.split()[0]
-            clean_weights[feature] = value
+            matched = next((f for f in sorted_features if f in key), None)
+            if matched:
+                clean_weights[matched] = value
 
         results.append(clean_weights)
 
@@ -63,7 +67,7 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
         if col not in df.columns:
             df[col] = 0.0
 
-    df = df[feature_names]
+    df = df[feature_names].fillna(0.0)
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
