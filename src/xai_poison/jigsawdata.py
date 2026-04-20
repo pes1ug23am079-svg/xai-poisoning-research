@@ -26,7 +26,7 @@ def preprocess(df: pd.DataFrame):
         "obscene",
         "threat",
         "insult",
-        "identity_hate"
+        "identity_hate",
     ]
 
     # binary classification: any toxic label → 1
@@ -43,11 +43,7 @@ def preprocess(df: pd.DataFrame):
 # -------------------------
 def split_data(X, y, test_size=0.2, random_state=42):
     return train_test_split(
-        X,
-        y,
-        test_size=test_size,
-        random_state=random_state,
-        stratify=y
+        X, y, test_size=test_size, random_state=random_state, stratify=y
     )
 
 
@@ -98,6 +94,7 @@ def poison_backdoor_trigger(X_train, y_train, poison_rate=0.1, random_state=42):
     y_poisoned.iloc[poison_idx] = 1
 
     return X_poisoned, y_poisoned
+
 
 if __name__ == "__main__":
     df = load_data()
