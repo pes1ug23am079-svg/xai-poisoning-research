@@ -1,10 +1,11 @@
 from pathlib import Path
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, ttest_ind, wilcoxon
 
 # ---------------------------------------------------------------------------
 # Core metrics
@@ -96,6 +97,104 @@ def explanation_stability(explanation_df: pd.DataFrame) -> float:
     return float(np.mean(upper)) if len(upper) > 0 else float("nan")
 
 
+def _aligned_explanations(
+    clean_df: pd.DataFrame, poisoned_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    n = min(len(clean_df), len(poisoned_df))
+    return clean_df.iloc[:n], poisoned_df.iloc[:n]
+
+
+def _sample_aligned_explanations(
+    clean_df: pd.DataFrame,
+    poisoned_df: pd.DataFrame,
+    max_samples: int = 500,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    c, p = _aligned_explanations(clean_df, poisoned_df)
+    if len(c) <= max_samples:
+        return c, p
+
+    rng = np.random.default_rng(random_state)
+    idx = rng.choice(len(c), size=max_samples, replace=False)
+    return c.iloc[idx], p.iloc[idx]
+
+
+def explanation_drift_index(
+    clean_df: pd.DataFrame, poisoned_df: pd.DataFrame, max_samples: int = 500
+) -> float:
+    """Composite novelty score combining rank drift, overlap loss, and stability gap."""
+    c, p = _sample_aligned_explanations(
+        clean_df, poisoned_df, max_samples=max_samples
+    )
+    spearman_score = spearman_correlation(c, p, max_samples=max_samples)
+    overlap_score = top_k_overlap(c, p, k=5, max_samples=max_samples)
+    stability_gap = abs(explanation_stability(c) - explanation_stability(p))
+
+    components = [
+        1.0 - spearman_score,
+        1.0 - overlap_score,
+        stability_gap,
+    ]
+    finite_components = [value for value in components if not np.isnan(value)]
+    if not finite_components:
+        return float("nan")
+    return float(np.clip(np.mean(finite_components), 0.0, 1.0))
+
+
+def permutation_p_value(
+    clean_df: pd.DataFrame,
+    poisoned_df: pd.DataFrame,
+    n_resamples: int = 200,
+    random_state: int = 42,
+) -> float:
+    """Two-sided permutation test on mean absolute contribution magnitude."""
+    c, p = _sample_aligned_explanations(clean_df, poisoned_df, max_samples=500)
+    clean_values = c.abs().to_numpy().ravel()
+    poisoned_values = p.abs().to_numpy().ravel()
+
+    if len(clean_values) == 0 or len(poisoned_values) == 0:
+        return float("nan")
+
+    observed = abs(float(np.mean(clean_values) - np.mean(poisoned_values)))
+    combined = np.concatenate([clean_values, poisoned_values])
+    clean_size = len(clean_values)
+    rng = np.random.default_rng(random_state)
+
+    hits = 0
+    for _ in range(n_resamples):
+        shuffled = rng.permutation(combined)
+        sample_clean = shuffled[:clean_size]
+        sample_poisoned = shuffled[clean_size:]
+        stat = abs(float(np.mean(sample_clean) - np.mean(sample_poisoned)))
+        if stat >= observed:
+            hits += 1
+
+    return float((hits + 1) / (n_resamples + 1))
+
+
+def welch_ttest_p_value(clean_df: pd.DataFrame, poisoned_df: pd.DataFrame) -> float:
+    """Welch t-test p-value on flattened absolute contribution magnitudes."""
+    c, p = _sample_aligned_explanations(clean_df, poisoned_df, max_samples=500)
+    clean_values = c.abs().to_numpy().ravel()
+    poisoned_values = p.abs().to_numpy().ravel()
+    if len(clean_values) == 0 or len(poisoned_values) == 0:
+        return float("nan")
+    return float(ttest_ind(clean_values, poisoned_values, equal_var=False).pvalue)
+
+
+def wilcoxon_p_value(clean_df: pd.DataFrame, poisoned_df: pd.DataFrame) -> float:
+    """Wilcoxon signed-rank p-value on flattened absolute contribution magnitudes."""
+    c, p = _sample_aligned_explanations(clean_df, poisoned_df, max_samples=500)
+    clean_values = c.abs().to_numpy().ravel()
+    poisoned_values = p.abs().to_numpy().ravel()
+    if len(clean_values) == 0 or len(poisoned_values) == 0:
+        return float("nan")
+    try:
+        return float(wilcoxon(clean_values, poisoned_values).pvalue)
+    except ValueError:
+        return 1.0
+
+
 # ---------------------------------------------------------------------------
 # Batch evaluation over results directory
 # ---------------------------------------------------------------------------
@@ -104,48 +203,41 @@ def explanation_stability(explanation_df: pd.DataFrame) -> float:
 def compute_all_metrics(
     shap_dir: Path,
     lime_dir: Path,
-    clean_prefix: str = "xgb_clean",
+    clean_prefix: str | None = None,
 ) -> pd.DataFrame:
     """
-    Iterate over all SHAP/LIME CSVs, compare each poisoned model against the
-    clean baseline, and return a DataFrame of metrics.
+    Iterate over all SHAP/LIME CSVs, compare each model/poison file against
+    its matching clean baseline, and return a DataFrame of metrics.
     """
     records = []
+    pattern = re.compile(
+        r"^(?P<model>[a-z0-9]+)_(?P<poison>clean|label_flip|feature_perturbation)"
+        r"(?:_(?P<rate>[0-9.]+))?$"
+    )
 
     for explainer_name, results_dir in [("shap", shap_dir), ("lime", lime_dir)]:
-        clean_path = results_dir / f"{explainer_name}_{clean_prefix}.csv"
-        if not clean_path.exists():
-            print(
-                f"  Skipping {explainer_name}: clean baseline not found at {clean_path}"
-            )
-            continue
-
-        clean_df = pd.read_csv(clean_path)
-
         for csv_path in sorted(results_dir.glob(f"{explainer_name}_*.csv")):
             name = csv_path.stem.removeprefix(f"{explainer_name}_")
+            match = pattern.match(name)
+            if not match:
+                continue
+
+            model_type = match.group("model")
+            poison_type = match.group("poison")
+            poison_rate = 0.0 if poison_type == "clean" else float(match.group("rate"))
+
+            clean_path = results_dir / f"{explainer_name}_{model_type}_clean.csv"
+            if not clean_path.exists():
+                print(
+                    f"  Skipping {csv_path.name}: clean baseline not found at {clean_path}"
+                )
+                continue
+
+            clean_df = pd.read_csv(clean_path)
             poisoned_df = pd.read_csv(csv_path)
 
             # Align shapes — use min rows in case LIME was run on a subset
-            n = min(len(clean_df), len(poisoned_df))
-            c = clean_df.iloc[:n]
-            p = poisoned_df.iloc[:n]
-
-            # Parse poison type and rate from filename (e.g. xgb_label_flip_0.1)
-            parts = name.split("_")
-            model_type = parts[0]
-            if "clean" in name:
-                poison_type = "clean"
-                poison_rate = 0.0
-            elif "label_flip" in name:
-                poison_type = "label_flip"
-                poison_rate = float(parts[-1])
-            elif "feature_perturbation" in name:
-                poison_type = "feature_perturbation"
-                poison_rate = float(parts[-1])
-            else:
-                poison_type = "unknown"
-                poison_rate = float("nan")
+            c, p = _aligned_explanations(clean_df, poisoned_df)
 
             records.append(
                 {
@@ -156,6 +248,10 @@ def compute_all_metrics(
                     "spearman_corr": spearman_correlation(c, p),
                     "top5_overlap": top_k_overlap(c, p, k=5),
                     "stability": explanation_stability(p),
+                    "drift_index": explanation_drift_index(c, p),
+                    "perm_p_value": permutation_p_value(c, p),
+                    "ttest_p_value": welch_ttest_p_value(c, p),
+                    "wilcoxon_p_value": wilcoxon_p_value(c, p),
                 }
             )
 
@@ -252,6 +348,36 @@ def plot_stability_heatmap(metrics_df: pd.DataFrame, output_path: Path) -> None:
         print(f"  Saved: {path}")
 
 
+def plot_drift_by_poison_rate(metrics_df: pd.DataFrame, output_path: Path) -> None:
+    """Line plot: composite explanation drift vs. poison rate, faceted by explainer."""
+    df = metrics_df[metrics_df["poison_type"] != "clean"].copy()
+    if df.empty:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+    for ax, explainer in zip(axes, ["shap", "lime"]):
+        subset = df[df["explainer"] == explainer]
+        for poison_type, group in subset.groupby("poison_type"):
+            for model, mgroup in group.groupby("model"):
+                ax.plot(
+                    mgroup["poison_rate"],
+                    mgroup["drift_index"],
+                    marker="o",
+                    label=f"{model} / {poison_type}",
+                )
+        ax.set_title(f"{explainer.upper()} — Explanation Drift Index")
+        ax.set_xlabel("Poison Rate")
+        ax.set_ylabel("Drift Index")
+        ax.legend(fontsize=8)
+        ax.set_ylim(0, 1.05)
+
+    plt.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    print(f"  Saved: {output_path}")
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -277,6 +403,7 @@ def main():
 
     print("\nGenerating plots...")
     plot_spearman_by_poison_rate(metrics_df, plots_dir / "spearman_by_poison_rate.png")
+    plot_drift_by_poison_rate(metrics_df, plots_dir / "drift_by_poison_rate.png")
     plot_top_k_overlap(metrics_df, plots_dir / "top5_overlap.png")
     plot_stability_heatmap(metrics_df, plots_dir / "stability_heatmap.png")
     print("Done.")
