@@ -25,21 +25,24 @@ def fake_model():
 def test_run_shap_creates_csv(tmp_path, sample_data):
     X, feature_names = sample_data
 
-    with patch("shap.TreeExplainer") as mock_tree:
+    with patch("shap.TreeExplainer") as mock_tree, patch("shap.summary_plot"):
         mock_explainer = MagicMock()
         mock_explainer.shap_values.return_value = np.random.randn(*X.shape)
         mock_tree.return_value = mock_explainer
 
         output_file = tmp_path / "shap_test.csv"
+        summary_file = tmp_path / "shap_summary.png"
 
         run_shap(
             model=MagicMock(),
             X=X,
             feature_names=feature_names,
             output_path=output_file,
+            summary_output_path=summary_file,
         )
 
         assert output_file.exists()
+        assert summary_file.exists()
 
         df = pd.read_csv(output_file)
         assert df.shape == X.shape
@@ -57,6 +60,7 @@ def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
         mock_lime.return_value = mock_instance
 
         output_file = tmp_path / "lime_test.csv"
+        summary_file = tmp_path / "lime_summary.png"
 
         run_lime(
             model=fake_model,
@@ -64,9 +68,11 @@ def test_run_lime_creates_csv(tmp_path, sample_data, fake_model):
             X_explain=X[:10],
             feature_names=feature_names,
             output_path=output_file,
+            summary_output_path=summary_file,
         )
 
         assert output_file.exists()
+        assert summary_file.exists()
 
         df = pd.read_csv(output_file)
         assert len(df) == 10

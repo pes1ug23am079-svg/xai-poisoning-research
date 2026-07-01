@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import shap
 from lime.lime_tabular import LimeTabularExplainer
@@ -8,7 +10,36 @@ from xai_poison.data import load_data, preprocess, split_data
 from xai_poison.model import ModelTrainer
 
 
-def run_shap(model, X, feature_names, output_path):
+def save_shap_summary_plot(shap_values, X, feature_names, output_path):
+    """Save a SHAP summary plot, falling back to a mean-|value| bar chart."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        plt.figure(figsize=(10, 6))
+        shap.summary_plot(
+            shap_values,
+            X,
+            feature_names=feature_names,
+            show=False,
+            plot_type="dot",
+        )
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    except Exception:
+        importance = np.mean(np.abs(np.asarray(shap_values)), axis=0)
+        order = np.argsort(importance)
+        plt.figure(figsize=(10, 6))
+        plt.barh(np.asarray(feature_names)[order], importance[order])
+        plt.xlabel("Mean |SHAP value|")
+        plt.title("SHAP summary")
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    finally:
+        plt.close()
+
+
+def run_shap(model, X, feature_names, output_path, summary_output_path=None):
     print("  → Running SHAP...")
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
@@ -23,10 +54,37 @@ def run_shap(model, X, feature_names, output_path):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
 
+    if summary_output_path is not None:
+        save_shap_summary_plot(shap_values, X, feature_names, summary_output_path)
+
     print(f"  ✓ SHAP saved → {output_path}")
 
 
-def run_lime(model, X_train, X_explain, feature_names, output_path):
+def save_lime_summary_plot(results_df, feature_names, output_path):
+    """Save a LIME summary plot using mean absolute feature weights."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    summary = results_df.reindex(columns=feature_names, fill_value=0.0).abs().mean()
+    summary = summary.sort_values()
+
+    plt.figure(figsize=(10, 6))
+    plt.barh(summary.index, summary.values)
+    plt.xlabel("Mean |LIME weight|")
+    plt.title("LIME summary")
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def run_lime(
+    model,
+    X_train,
+    X_explain,
+    feature_names,
+    output_path,
+    summary_output_path=None,
+):
     print("  → Running LIME...")
 
     explainer = LimeTabularExplainer(
@@ -72,6 +130,9 @@ def run_lime(model, X_train, X_explain, feature_names, output_path):
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
 
+    if summary_output_path is not None:
+        save_lime_summary_plot(df, feature_names, summary_output_path)
+
     print(f"  ✓ LIME saved → {output_path}")
 
 
@@ -85,6 +146,7 @@ def main():
     feature_names = X.columns.tolist()
 
     models_dir = Path("models")
+    plots_dir = Path("results/plots")
 
     print("\nScanning models directory...\n")
 
@@ -101,6 +163,7 @@ def main():
             X_test,
             feature_names,
             f"results/shap/shap_{name}.csv",
+            plots_dir / f"shap_summary_{name}.png",
         )
 
         run_lime(
@@ -109,6 +172,7 @@ def main():
             X_test.to_numpy()[:50],
             feature_names,
             f"results/lime/lime_{name}.csv",
+            plots_dir / f"lime_summary_{name}.png",
         )
 
     print("\n🎉 ALL MODELS PROCESSED SUCCESSFULLY!")

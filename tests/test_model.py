@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from pathlib import Path
 
 from xai_poison.model import ModelTrainer
 
@@ -103,3 +104,19 @@ class TestModelTrainer:
 
         loaded_df = pd.read_csv(output_path)
         assert len(loaded_df) == 2
+
+    def test_save_roc_curve_creates_plot(self, sample_data, trainer, tmp_path):
+        """Test ROC curve plotting creates a file for a fitted model."""
+        X, y = sample_data
+        X_train = X.iloc[:800]
+        y_train = y.iloc[:800]
+        X_test = X.iloc[800:]
+        y_test = y.iloc[800:]
+
+        model = trainer.train_xgboost(X_train, y_train)
+
+        output_path = tmp_path / "roc.png"
+        auc = trainer.save_roc_curve(model, X_test, y_test, output_path)
+
+        assert output_path.exists()
+        assert 0 <= auc <= 1

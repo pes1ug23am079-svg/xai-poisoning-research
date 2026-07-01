@@ -31,6 +31,7 @@ def main():
     print(f"Loaded {len(X_train)} training samples, {len(X_test)} test samples")
 
     trainer = ModelTrainer()
+    plots_dir = Path("results/plots/roc")
 
     # ============================================================
     # TRAIN ON CLEAN DATA
@@ -44,6 +45,7 @@ def main():
     metrics = trainer.evaluate_model(xgb, X_test, y_test)
     print(f"  ✓ XGBoost - AUC: {metrics['auc']:.4f}, F1: {metrics['f1']:.4f}")
     trainer.save_model(xgb, Path("models/xgb_clean.pkl"))
+    trainer.save_roc_curve(xgb, X_test, y_test, plots_dir / "xgb_clean.png")
     trainer.log_result("clean", 0.0, "xgboost", metrics["auc"], metrics["f1"])
 
     print("Training Random Forest on clean data...")
@@ -51,6 +53,7 @@ def main():
     metrics = trainer.evaluate_model(rf, X_test, y_test)
     print(f"  ✓ Random Forest - AUC: {metrics['auc']:.4f}, F1: {metrics['f1']:.4f}")
     trainer.save_model(rf, Path("models/rf_clean.pkl"))
+    trainer.save_roc_curve(rf, X_test, y_test, plots_dir / "rf_clean.png")
     trainer.log_result("clean", 0.0, "random_forest", metrics["auc"], metrics["f1"])
 
     # ============================================================
@@ -71,6 +74,9 @@ def main():
         metrics = trainer.evaluate_model(xgb, X_test, y_test)
         print(f"    ✓ AUC: {metrics['auc']:.4f}, F1: {metrics['f1']:.4f}")
         trainer.save_model(xgb, Path(f"models/xgb_label_flip_{poison_rate}.pkl"))
+        trainer.save_roc_curve(
+            xgb, X_test, y_test, plots_dir / f"xgb_label_flip_{poison_rate}.png"
+        )
         trainer.log_result(
             "label_flip", poison_rate, "xgboost", metrics["auc"], metrics["f1"]
         )
@@ -80,6 +86,9 @@ def main():
         metrics = trainer.evaluate_model(rf, X_test, y_test)
         print(f"    ✓ AUC: {metrics['auc']:.4f}, F1: {metrics['f1']:.4f}")
         trainer.save_model(rf, Path(f"models/rf_label_flip_{poison_rate}.pkl"))
+        trainer.save_roc_curve(
+            rf, X_test, y_test, plots_dir / f"rf_label_flip_{poison_rate}.png"
+        )
         trainer.log_result(
             "label_flip", poison_rate, "random_forest", metrics["auc"], metrics["f1"]
         )
@@ -104,6 +113,12 @@ def main():
         trainer.save_model(
             xgb, Path(f"models/xgb_feature_perturbation_{poison_rate}.pkl")
         )
+        trainer.save_roc_curve(
+            xgb,
+            X_test,
+            y_test,
+            plots_dir / f"xgb_feature_perturbation_{poison_rate}.png",
+        )
         trainer.log_result(
             "feature_perturbation",
             poison_rate,
@@ -118,6 +133,12 @@ def main():
         print(f"    ✓ AUC: {metrics['auc']:.4f}, F1: {metrics['f1']:.4f}")
         trainer.save_model(
             rf, Path(f"models/rf_feature_perturbation_{poison_rate}.pkl")
+        )
+        trainer.save_roc_curve(
+            rf,
+            X_test,
+            y_test,
+            plots_dir / f"rf_feature_perturbation_{poison_rate}.png",
         )
         trainer.log_result(
             "feature_perturbation",

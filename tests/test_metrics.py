@@ -4,11 +4,15 @@ import pytest
 
 from xai_poison.metrics import (
     compute_all_metrics,
+    explanation_drift_index,
     explanation_stability,
     plot_spearman_by_poison_rate,
+    permutation_p_value,
     plot_stability_heatmap,
     plot_top_k_overlap,
     spearman_correlation,
+    welch_ttest_p_value,
+    wilcoxon_p_value,
     top_k_overlap,
 )
 
@@ -199,6 +203,10 @@ def test_compute_all_metrics_columns(explanation_dirs):
         "spearman_corr",
         "top5_overlap",
         "stability",
+        "drift_index",
+        "perm_p_value",
+        "ttest_p_value",
+        "wilcoxon_p_value",
     ]:
         assert col in result.columns
 
@@ -229,6 +237,23 @@ def test_compute_all_metrics_parses_poison_types(explanation_dirs):
     assert "clean" in poison_types
     assert "label_flip" in poison_types
     assert "feature_perturbation" in poison_types
+
+
+def test_explanation_drift_index_identical_is_zero(identical_explanations):
+    clean, poisoned = identical_explanations
+    result = explanation_drift_index(clean, poisoned)
+    assert abs(result - 0.0) < 1e-6
+
+
+def test_significance_helpers_return_valid_p_values(random_explanations):
+    clean, poisoned = random_explanations
+
+    perm_value = permutation_p_value(clean, poisoned, n_resamples=100)
+    ttest_value = welch_ttest_p_value(clean, poisoned)
+    wilcoxon_value = wilcoxon_p_value(clean, poisoned)
+
+    for value in [perm_value, ttest_value, wilcoxon_value]:
+        assert 0.0 <= value <= 1.0
 
 
 # ---------------------------------------------------------------------------

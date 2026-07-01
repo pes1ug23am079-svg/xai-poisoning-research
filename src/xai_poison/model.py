@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score, roc_curve
 from xgboost import XGBClassifier
 
 
@@ -53,6 +54,33 @@ class ModelTrainer:
         f1 = f1_score(y_test, y_pred)
 
         return {"auc": auc, "f1": f1}
+
+    def save_roc_curve(
+        self,
+        model,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
+        output_path: Path,
+    ) -> float:
+        """Save an ROC curve plot for a fitted binary classifier."""
+        y_pred_proba = model.predict_proba(X_test)[:, 1]
+        fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+        auc = roc_auc_score(y_test, y_pred_proba)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.figure(figsize=(6, 5))
+        plt.plot(fpr, tpr, label=f"ROC curve (AUC = {auc:.4f})")
+        plt.plot([0, 1], [0, 1], "k--", label="Chance")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("ROC Curve")
+        plt.legend(loc="lower right")
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150)
+        plt.close()
+
+        print(f"ROC curve saved to {output_path}")
+        return auc
 
     def save_model(self, model, model_path: Path) -> None:
         """Save trained model to disk."""
